@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include "wifi.h"
 #include "http.h"
+#include "uart.h"
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -47,16 +48,19 @@ void app_main(void)
 
     printf("Minimum free heap size: %d bytes\n", esp_get_minimum_free_heap_size());
 
+    uart_start_task();
+
     wifi_init_sta();
 
-    while(1) {
-        ESP_LOGI("main", "Before HTTP request");
-        http_rest_with_url();
+    uart_wait_until_done();
 
-        ESP_LOGI("main", "Pausing...");
-        fflush(stdout);
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
-    }
+    // we have to wait some time before we can use the modem :(
+    // vTaskDelay(100 / portTICK_PERIOD_MS);
 
-    esp_restart();
+    ESP_LOGI("main", "Before HTTP request");
+    http_rest_with_url();
+
+    ESP_LOGI("main", "Pausing...");
+    fflush(stdout);
+    vTaskDelay(portMAX_DELAY);
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CLionExternalBuildManager">
+    <target id="bb9fa381-1a75-4008-a096-d510629d269f" name="esp32s2" defaultType="TOOL">
+      <configuration id="73a4cf89-30f2-44fe-868f-24f8da46d9c6" name="esp32s2" />
+    </target>
+  </component>
+</project>
