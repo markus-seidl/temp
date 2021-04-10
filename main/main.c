@@ -4,7 +4,7 @@
 
    Unless required by applicable law or agreed to in writing, this
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
+   CONDITIONS CONFIG_PM_ENABLEOF ANY KIND, either express or implied.
 */
 #include <stdio.h>
 #include "wifi.h"
@@ -16,7 +16,10 @@
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "esp_log.h"
-
+#include "esp_pm.h"
+#include "driver/gpio.h"
+#include "esp_sleep.h"
+#include "driver/uart.h"
 #include "nvs_flash.h"
 
 void app_main(void)
@@ -29,6 +32,51 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
+#if CONFIG_PM_ENABLE
+    // Configure dynamic frequency scaling:
+    // maximum and minimum frequencies are set in sdkconfig,
+    // automatic light sleep is enabled if tickless idle support is enabled.
+#if CONFIG_IDF_TARGET_ESP32
+    esp_pm_config_esp32_t pm_config = {
+#elif CONFIG_IDF_TARGET_ESP32S2
+            esp_pm_config_esp32s2_t pm_config = {
+#elif CONFIG_IDF_TARGET_ESP32C3
+    esp_pm_config_esp32c3_t pm_config = {
+#endif
+            .max_freq_mhz = 80,
+            .min_freq_mhz = 80,
+#if CONFIG_FREERTOS_USE_TICKLESS_IDLE
+            .light_sleep_enable = true
+#endif
+    };
+    printf("Enable dynamic light sleep...");
+    ESP_ERROR_CHECK( esp_pm_configure(&pm_config) );
+#endif // CONFIG_PM_ENABLE
+
+    // ------------- Enable wakeup
+
+    /* Configure the button GPIO as input, enable wakeup */
+    const int button_gpio_num = 2;
+    const int wakeup_level = GPIO_INTR_HIGH_LEVEL;
+    gpio_config_t config = {
+            .pin_bit_mask = BIT64(button_gpio_num),
+            .mode = GPIO_MODE_INPUT
+    };
+    ESP_ERROR_CHECK(gpio_config(&config));
+    gpio_wakeup_enable(button_gpio_num, GPIO_INTR_HIGH_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+
+    if (gpio_get_level(button_gpio_num) == 1) {
+        printf("WAKEUP HIGH\n");
+    } else {
+        printf("WAKEUP LOW - sleeping!");
+
+        uart_wait_tx_idle_polling(0);
+        fflush(stdout);
+
+        esp_deep_sleep_start();
+    }
+    //
 
     printf("Hello world!\n");
 
@@ -54,13 +102,12 @@ void app_main(void)
 
     uart_wait_until_done();
 
-    // we have to wait some time before we can use the modem :(
-    // vTaskDelay(100 / portTICK_PERIOD_MS);
-
     ESP_LOGI("main", "Before HTTP request");
     http_rest_with_url();
 
-    ESP_LOGI("main", "Pausing...");
+    ESP_LOGI("main", "Stop WIFI");
+    wifi_stop();
+
     fflush(stdout);
     vTaskDelay(portMAX_DELAY);
 }
