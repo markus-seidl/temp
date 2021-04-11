@@ -38,7 +38,7 @@ void app_main(void)
             .max_freq_mhz = 80,
             .min_freq_mhz = 80,
 #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
-            // .light_sleep_enable = true
+            .light_sleep_enable = true
 #endif
     };
     printf("Enable dynamic light sleep...");
