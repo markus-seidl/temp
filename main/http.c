@@ -11,7 +11,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
-void http_rest_with_url(void) {
+void http_rest_with_url(float temperature, float humidity) {
     char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};
     /**
      * NOTE: All the configuration parameters for http_client must be spefied either in URL or as host and path parameters.
@@ -20,11 +20,14 @@ void http_rest_with_url(void) {
      *
      * If URL as well as host and path parameters are specified, values of host and path will be considered.
      */
+    char* query = malloc(1024);
+    sprintf(query, "t=%f&h=%f", temperature, humidity);
+
     esp_http_client_config_t config = {
         .host = "192.168.1.121",
         .port = 8888,
         .path = "/",
-        .query = "t=test",
+        .query = query,
         .event_handler = _http_event_handler,
         .user_data = local_response_buffer,        // Pass address of local buffer to get response
         .disable_auto_redirect = true,

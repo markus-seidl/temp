@@ -13,6 +13,9 @@
 
 static EventGroupHandle_t s_uart_event_group;
 
+static float last_read_temperature = -1.0f;
+static float last_read_humidity = -1.0f;
+
 _Noreturn static void echo_task(void *arg)
 {
     /* Configure parameters of an UART driver,
@@ -45,9 +48,6 @@ _Noreturn static void echo_task(void *arg)
         int len = uart_read_bytes(CONFIG_ESP_UART_PORT_NUM, data, BUF_SIZE, 20 / portTICK_RATE_MS);
         // Write data back to the UART
 
-        float m_temp = -1;
-        float m_humid = -1;
-
         // Parse: BEGIN,26034,30000
         if(len > 5) {
             data[len] = 0;
@@ -60,14 +60,14 @@ _Noreturn static void echo_task(void *arg)
                 char *p = strtok(substr, ",");
                 if(p) {
                     long temp = strtol(p, NULL, 10);
-                    m_temp = (float)temp * 175.0f / 65535.0f - 45.0f;
+                    last_read_temperature = (float)temp * 175.0f / 65535.0f - 45.0f;
 
                     p = strtok(NULL, ",");
                     if(p) {
                         temp = strtol(p, NULL, 10);
-                        m_humid = (float)temp * 100.0f / 65535.0f;
+                        last_read_humidity = (float)temp * 100.0f / 65535.0f;
 
-                        printf("Found temp = %f and humidity = %f.", m_temp, m_humid);
+                        printf("Found temp = %f and humidity = %f.", last_read_temperature, last_read_humidity);
                         xEventGroupSetBits(s_uart_event_group, EVENT_UART_DONE);
                         vTaskDelay(portMAX_DELAY); // wait for infinity, because this task is done.
                     }
@@ -87,4 +87,12 @@ void uart_start_task(void)
 
 void uart_wait_until_done() {
     xEventGroupWaitBits(s_uart_event_group, EVENT_UART_DONE, pdFALSE, pdFALSE, portMAX_DELAY);
+}
+
+float uart_get_temperature() {
+    return last_read_temperature;
+}
+
+float uart_get_humidity() {
+    return last_read_humidity;
 }

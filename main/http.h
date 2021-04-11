@@ -1,2 +1,2 @@
 
-void http_rest_with_url(void);
+void http_rest_with_url(float temperature, float humidity);
