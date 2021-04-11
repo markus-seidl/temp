@@ -7,16 +7,19 @@
 #include "driver/uart.h"
 #include "driver/gpio.h"
 #include "sdkconfig.h"
+#include "esp_log.h"
 
 #define BUF_SIZE (1024)
 #define EVENT_UART_DONE BIT0
+
+static const char *TAG = "ht-uart";
 
 static EventGroupHandle_t s_uart_event_group;
 
 static float last_read_temperature = -1.0f;
 static float last_read_humidity = -1.0f;
 
-_Noreturn static void echo_task(void *arg)
+_Noreturn static void uart_recv_task(void *arg)
 {
     /* Configure parameters of an UART driver,
      * communication pins and install the driver */
@@ -41,7 +44,7 @@ _Noreturn static void echo_task(void *arg)
     // Configure a temporary buffer for the incoming data
     uint8_t *data = (uint8_t *) malloc(BUF_SIZE);
 
-    printf("UART started.");
+    printf("UART started");
 
     while (1) {
         // Read data from the UART
@@ -51,23 +54,47 @@ _Noreturn static void echo_task(void *arg)
         // Parse: BEGIN,26034,30000
         if(len > 5) {
             data[len] = 0;
-            const char *cdata = (const char *)data;
+            char *cdata = (char *)data;
             printf("Received %s\n", cdata);
+
             if (strncmp("BEGIN", cdata, 5) == 0) {
+                // There could be multiple BEGINs, try to find the last BEGIN element.
+                char *last = strtok(cdata, "BEGIN");
+                printf("--- %s\n", last);
+                while(1) {
+                    char* temp = strtok(NULL, "BEGIN");
+                    if(temp) {
+                        printf("--- %s\n", temp);
+                        last = temp;
+                    } else {
+                        break;
+                    }
+                }
+                cdata = last;
+                printf("RESULT::::%s\n", cdata);
+
                 char* substr = malloc(len);
-                strncpy(substr, cdata + 6, len);
+                strncpy(substr, cdata + 1, len);
 
                 char *p = strtok(substr, ",");
                 if(p) {
                     long temp = strtol(p, NULL, 10);
-                    last_read_temperature = (float)temp * 175.0f / 65535.0f - 45.0f;
+                    if(temp > 0) {
+                        last_read_temperature = (float)temp * 175.0f / 65535.0f - 45.0f;
+                    } else {
+                        last_read_temperature = -1.0f;
+                    }
 
                     p = strtok(NULL, ",");
                     if(p) {
                         temp = strtol(p, NULL, 10);
-                        last_read_humidity = (float)temp * 100.0f / 65535.0f;
+                        if(temp > 0) {
+                            last_read_humidity = (float)temp * 100.0f / 65535.0f;
+                        } else {
+                            last_read_humidity = -1.0f;
+                        }
 
-                        printf("Found temp = %f and humidity = %f.", last_read_temperature, last_read_humidity);
+                        printf("Found temp = %f and humidity = %f", last_read_temperature, last_read_humidity);
                         xEventGroupSetBits(s_uart_event_group, EVENT_UART_DONE);
                         vTaskDelay(portMAX_DELAY); // wait for infinity, because this task is done.
                     }
@@ -79,14 +106,29 @@ _Noreturn static void echo_task(void *arg)
     }
 }
 
-void uart_start_task(void)
-{
+void uart_start_task(void) {
     s_uart_event_group = xEventGroupCreate();
-    xTaskCreate(echo_task, "uart_echo_task", CONFIG_ESP_UART_TASK_STACK_SIZE, NULL, 10, NULL);
+    xTaskCreate(uart_recv_task, "uart_recv_task", CONFIG_ESP_UART_TASK_STACK_SIZE, NULL, 10, NULL);
 }
 
-void uart_wait_until_done() {
-    xEventGroupWaitBits(s_uart_event_group, EVENT_UART_DONE, pdFALSE, pdFALSE, portMAX_DELAY);
+uint8_t uart_wait_until_done() {
+    ESP_LOGI(TAG, "Waiting for UART data...");
+
+    // wait max 1s for uart data to arrive
+    EventBits_t eventBits = xEventGroupWaitBits(s_uart_event_group, EVENT_UART_DONE, pdFALSE, pdFALSE, 1000 / portTICK_RATE_MS);
+
+    if((eventBits & EVENT_UART_DONE) != 0) {
+        // data received
+        ESP_LOGI(TAG, "UART data received");
+        return 1;
+    } else {
+        ESP_LOGI(TAG, "NO UART data received");
+        // no data found, reset temp / humid
+        last_read_temperature = -1.0f;
+        last_read_humidity = -1.0f;
+
+        return 0;
+    }
 }
 
 float uart_get_temperature() {

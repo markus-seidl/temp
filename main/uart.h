@@ -1,8 +1,7 @@
 
 void uart_start_task(void);
 
-void uart_wait_until_done();
-
+uint8_t uart_wait_until_done();
 
 float uart_get_temperature();
 

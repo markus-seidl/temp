@@ -22,7 +22,7 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-static const char *TAG = "wifi station";
+static const char *TAG = "ht-wifi";
 
 static int s_retry_num = 0;
 
@@ -130,4 +130,11 @@ void wifi_init_sta(void)
 
 void wifi_stop() {
     ESP_ERROR_CHECK(esp_wifi_stop());
+}
+
+int8_t wifi_rssi() {
+    wifi_ap_record_t ap;
+    ESP_ERROR_CHECK(esp_wifi_sta_get_ap_info(&ap));
+
+    return ap.rssi;
 }
