@@ -13,12 +13,12 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
 }
 
 esp_err_t http_rest_with_url(float temperature, float humidity, int8_t rssi,
-                             uint32_t powerVoltage, uint8_t uartOk,
+                             uint32_t powerVoltage, int8_t uartOk,
                              uint8_t statWifiErr, uint8_t statHttpErr, uint8_t statUartErr, uint8_t statWakeupCnt, int64_t statSendMS
 ) {
     // ESP_LOGI(TAG, "1");
 
-    char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};
+    // char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};
     char* query = malloc(512);
 
     //Get MAC address for WiFi Station interface
