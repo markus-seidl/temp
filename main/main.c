@@ -1,11 +1,3 @@
-/* Hello World Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS CONFIG_PM_ENABLEOF ANY KIND, either express or implied.
-*/
 #include <stdio.h>
 #include "wifi.h"
 #include "http.h"
@@ -22,85 +14,85 @@
 #include "esp_sleep.h"
 #include "driver/uart.h"
 #include "nvs_flash.h"
+#include "util.h"
 
 static const char *TAG = "main";
 
-static RTC_DATA_ATTR float LAST_TEMPERATURE;
-static RTC_DATA_ATTR float LAST_HUMIDITY;
+static RTC_DATA_ATTR float LAST_TEMPERATURE = -1;
+static RTC_DATA_ATTR float LAST_HUMIDITY = -1;
+
+static RTC_DATA_ATTR uint8_t STAT_WIFI_ERR = 0;
+static RTC_DATA_ATTR uint8_t STAT_HTTP_ERR = 0;
+static RTC_DATA_ATTR uint8_t STAT_UART_ERR = 0;
+static RTC_DATA_ATTR uint8_t STAT_WAKEUP_CNT = 0;
+static RTC_DATA_ATTR int64_t STAT_SEND_MS = 0;
 
 void app_main(void)
 {
-    // Configure dynamic frequency scaling:
-    // maximum and minimum frequencies are set in sdkconfig,
-    // automatic light sleep is enabled if tickless idle support is enabled.
-    /*esp_pm_config_esp32s2_t pm_config = {
-            .max_freq_mhz = CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ,
-            .min_freq_mhz = CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ,
-            .light_sleep_enable = true
-    };
-    printf("Enable dynamic light sleep...");
-    ESP_ERROR_CHECK(esp_pm_configure(&pm_config));*/
+    STAT_WAKEUP_CNT++;
 
-    // ------------- Enable wakeup
+    ESP_LOGW(TAG, "Enable dynamic light sleep...");
+    enable_sleep();
 
-    /* Configure the button GPIO as input, enable wakeup */
-    const int button_gpio_num = 2;
-    printf("Enabling EXT1 wakeup on pins GPIO%d\n", button_gpio_num);
-    esp_sleep_enable_ext1_wakeup(1ULL << button_gpio_num, ESP_EXT1_WAKEUP_ANY_HIGH);
-    //esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-    //gpio_pulldown_en(button_gpio_num);
+    ESP_LOGI(TAG, "Enable wakeup source / determine wakeup source...");
+    uint8_t wakeup_source = enable_wakeup_source();
 
-//    if (gpio_get_level(button_gpio_num) == 1) {
-//        printf("WAKEUP HIGH\n");
-//    } else {
-//        printf("WAKEUP LOW - sleeping!");
-//
-//        uart_wait_tx_idle_polling(0);
-//        fflush(stdout);
-//
-//        esp_deep_sleep_start();
-//    }
-
-    if(esp_sleep_is_valid_wakeup_gpio(button_gpio_num)) {
-        printf("GPIO is valid as wakeup gpio.\n");
-    }
-
-    uint64_t wakeup_pin_mask = esp_sleep_get_ext1_wakeup_status();
-    if (wakeup_pin_mask != 0) {
-        int pin = __builtin_ffsll(wakeup_pin_mask) - 1;
-        printf("Wake up from GPIO %d\n", pin);
-    } else {
-        printf("POWER DOWN, but disabled\n");
-        uart_wait_tx_idle_polling(0);
-        fflush(stdout);
-        //esp_deep_sleep_start();
-    }
-
-    //----------------------------
-
+    ESP_LOGI(TAG, "Start listening on UART...");
     uart_start_task();
 
-    //Initialize NVS
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-
+    ESP_LOGI(TAG, "Reading power voltage...");
     uint32_t powerVoltage = adc_read_voltage();
 
-    wifi_init_sta();
+    ESP_LOGI(TAG, "Initializing Wifi");
+    uint8_t wifiErr = wifi_init_sta();
+    if(wifiErr != ESP_OK) {
+        STAT_WIFI_ERR++;
+    }
 
-    uint8_t uartOk = uart_wait_until_done();
+    ESP_LOGI(TAG, "Waiting for UART data...");
+    uint8_t uartErr = uart_wait_until_done();
+    if(uartErr != ESP_OK) {
+        STAT_UART_ERR++;
+    }
 
-    ESP_LOGI(TAG, "Before HTTP request");
-    http_rest_with_url(uart_get_temperature(), uart_get_humidity(), wifi_rssi(), powerVoltage, uartOk);
+    float temperature = uart_get_temperature();
+    float humidity = uart_get_humidity();
+    if(uartErr != ESP_OK) {
+        temperature = LAST_TEMPERATURE;
+        humidity = LAST_HUMIDITY;
+    } else {
+        LAST_TEMPERATURE = temperature;
+        LAST_HUMIDITY = humidity;
+    }
 
-    ESP_LOGI(TAG, "Stop WIFI");
+    ESP_LOGI(TAG, "Sending data to server...");
+
+    int64_t time_before_entering_loop = millis();
+    STAT_SEND_MS += time_before_entering_loop;
+    for(int http_retry = 0; http_retry <= 2; http_retry++) {
+        STAT_SEND_MS += millis() - time_before_entering_loop;
+        esp_err_t httpErr = http_rest_with_url(temperature, humidity, wifi_rssi(), powerVoltage, uartErr,
+                                                STAT_WIFI_ERR, STAT_HTTP_ERR, STAT_UART_ERR, STAT_WAKEUP_CNT, STAT_SEND_MS);
+        if(httpErr == ESP_OK) {
+            LAST_TEMPERATURE = -1.0f;
+            LAST_HUMIDITY = -1.0f;
+
+            STAT_WIFI_ERR = 0;
+            STAT_HTTP_ERR = 0;
+            STAT_UART_ERR = 0;
+            STAT_WAKEUP_CNT = 0;
+            STAT_SEND_MS = 0;
+
+            break;
+        } else {
+            STAT_HTTP_ERR++;
+            ESP_LOGE(TAG, "Http error, retry.");
+        }
+    }
+
+    ESP_LOGI(TAG, "Stopping WIFI");
     wifi_stop();
 
-    fflush(stdout);
-
+    ESP_LOGI(TAG, "Sleeping... ZzzzZzzzZzzzZzzz");
     esp_deep_sleep_start();
 }

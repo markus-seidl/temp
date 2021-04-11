@@ -1,6 +1,7 @@
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
 #include "soc/adc_channel.h"
+#include "esp_log.h"
 
 #define NO_OF_SAMPLES   32          //Multisampling
 #define ADC_ATTEN       ADC_ATTEN_DB_6
@@ -12,11 +13,11 @@ static const char *TAG = "adc";
 static void print_char_val_type(esp_adc_cal_value_t val_type)
 {
     if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
-        printf("Characterized using Two Point Value\n");
+        ESP_LOGD(TAG, "Characterized using Two Point Value");
     } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
-        printf("Characterized using eFuse Vref\n");
+        ESP_LOGD(TAG, "Characterized using eFuse Vref");
     } else {
-        printf("Characterized using Default Vref\n");
+        ESP_LOGD(TAG, "Characterized using Default Vref");
     }
 }
 
@@ -45,7 +46,7 @@ uint32_t adc_read_voltage(void) {
     //Convert adc_reading to voltage in mV
     uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
     voltage *= 3;
-    printf("Raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
+    ESP_LOGI(TAG, "Raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
 
     free(adc_chars);
 

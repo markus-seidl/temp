@@ -1,5 +1,5 @@
 
-void wifi_init_sta(void);
+uint8_t wifi_init_sta(void);
 
 void wifi_stop(void);
 
