@@ -23,17 +23,15 @@ esp_err_t http_rest_with_url(float temperature, float humidity, int8_t rssi,
 
     //Get MAC address for WiFi Station interface
     uint8_t mac[6] = {0};
-    // ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
+    ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
 
     // - QUERY -
     // ESP_LOGI(TAG, "2");
-    sprintf(query, "t=%f&h=%f&mac=%02x:%02x:%02x&rssi=%d&v=%i&uart=%i&statWifiErr=%i&statHttpErr=%i&statUartErr=%i&statWakeupCnt=%i&statSendMS=%llu",
+    sprintf(query, "t=%f&h=%f&mac=%02x:%02x:%02x&uart=%i&stat=%d,%i,%i,%i,%i,%i,%llu",
             temperature, humidity,
             mac[3], mac[4], mac[5],
-            rssi,
-            powerVoltage,
             uartOk,
-            statWifiErr, statHttpErr, statUartErr, statWakeupCnt, statSendMS
+            rssi, powerVoltage, statWifiErr, statHttpErr, statUartErr, statWakeupCnt, statSendMS
     );
 
     ESP_LOGI(TAG, "Sending data to server: %s", query);

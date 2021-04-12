@@ -17,7 +17,7 @@ void enable_sleep() {
     esp_pm_config_esp32s2_t pm_config = {
             .max_freq_mhz = CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ,
             .min_freq_mhz = CONFIG_ESP32S2_DEFAULT_CPU_FREQ_MHZ,
-            .light_sleep_enable = true
+            .light_sleep_enable = false
     };
     ESP_ERROR_CHECK(esp_pm_configure(&pm_config));
 }

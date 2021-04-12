@@ -12,6 +12,9 @@
 #define BUF_SIZE (1024)
 #define EVENT_UART_DONE BIT0
 
+static RTC_DATA_ATTR float LAST_TEMPERATURE = -1;
+static RTC_DATA_ATTR float LAST_HUMIDITY = -1;
+
 static const char *TAG = "ht-uart";
 
 static EventGroupHandle_t s_uart_event_group;
@@ -94,6 +97,14 @@ _Noreturn static void uart_recv_task(void *arg)
                             last_read_humidity = -1.0f;
                         }
 
+                        if(last_read_temperature > 0) {
+                            LAST_TEMPERATURE = last_read_temperature;
+                        }
+
+                        if(last_read_humidity > 0) {
+                            LAST_HUMIDITY = last_read_humidity;
+                        }
+
                         ESP_LOGI(TAG, "Found temp = %f and humidity = %f", last_read_temperature, last_read_humidity);
                         xEventGroupSetBits(s_uart_event_group, EVENT_UART_DONE);
                         vTaskDelay(portMAX_DELAY); // wait for infinity, because this task is done.
@@ -119,20 +130,25 @@ uint8_t uart_wait_until_done() {
         ESP_LOGI(TAG, "UART data received");
         return ESP_OK;
     } else {
-        ESP_LOGE(TAG, "NO UART data received");
+        ESP_LOGE(TAG, "NO UART data received.");
 
-        // no data found, reset temp / humid
-        last_read_temperature = -1.0f;
-        last_read_humidity = -1.0f;
+//        // no data found, reset temp / humid
+//        last_read_temperature = -1.0f;
+//        last_read_humidity = -1.0f;
 
         return ESP_FAIL;
     }
 }
 
 float uart_get_temperature() {
-    return last_read_temperature;
+    return LAST_TEMPERATURE;
 }
 
 float uart_get_humidity() {
-    return last_read_humidity;
+    return LAST_HUMIDITY;
+}
+
+void uart_reset_value_buffer() {
+    LAST_TEMPERATURE = -1;
+    LAST_HUMIDITY = -1;
 }
