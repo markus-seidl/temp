@@ -38,8 +38,8 @@ void app_main(void)
 {
     STAT_WAKEUP_CNT++;
 
-    // ESP_LOGW(TAG, "Enable dynamic light sleep...");
-    // enable_sleep();
+    ESP_LOGW(TAG, "Enable dynamic light sleep...");
+    enable_sleep();
 
     ESP_LOGI(TAG, "Enable wakeup source / determine wakeup source...");
     uint8_t wakeup_source = enable_wakeup_source();
