@@ -68,7 +68,7 @@ void app_main(void)
     STAT_SEND_MS += time_before_entering_loop;
     for(int http_retry = 0; http_retry <= 2; http_retry++) {
         STAT_SEND_MS += millis() - time_before_entering_loop;
-        STAT_HTTP_ERR++; // if we crash while sending http request, we wouldn't increase the counter
+        STAT_HTTP_ERR++; // if we crash while sending http request, we can't increase the counter
         esp_err_t httpErr = http_rest_with_url(uart_get_temperature(), uart_get_humidity(), wifi_rssi(), powerVoltage, uartErr,
                                                 STAT_WIFI_ERR, STAT_HTTP_ERR - 1, STAT_UART_ERR, STAT_WAKEUP_CNT, STAT_SEND_MS);
         if(httpErr == ESP_OK) {

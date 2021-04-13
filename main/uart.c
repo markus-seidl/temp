@@ -82,28 +82,15 @@ _Noreturn static void uart_recv_task(void *arg)
                 char *p = strtok(substr, ",");
                 if(p) {
                     long temp = strtol(p, NULL, 10);
-                    if(temp > 0) {
-                        last_read_temperature = (float)temp * 175.0f / 65535.0f - 45.0f;
-                    } else {
-                        last_read_temperature = -1.0f;
-                    }
+                    last_read_temperature = (float)temp * 175.0f / 65535.0f - 45.0f;
 
                     p = strtok(NULL, ",");
                     if(p) {
                         temp = strtol(p, NULL, 10);
-                        if(temp > 0) {
-                            last_read_humidity = (float)temp * 100.0f / 65535.0f;
-                        } else {
-                            last_read_humidity = -1.0f;
-                        }
+                        last_read_humidity = (float)temp * 100.0f / 65535.0f;
 
-                        if(last_read_temperature > 0) {
-                            LAST_TEMPERATURE = last_read_temperature;
-                        }
-
-                        if(last_read_humidity > 0) {
-                            LAST_HUMIDITY = last_read_humidity;
-                        }
+                        LAST_TEMPERATURE = last_read_temperature;
+                        LAST_HUMIDITY = last_read_humidity;
 
                         ESP_LOGI(TAG, "Found temp = %f and humidity = %f", last_read_temperature, last_read_humidity);
                         xEventGroupSetBits(s_uart_event_group, EVENT_UART_DONE);
