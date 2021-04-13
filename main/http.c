@@ -12,6 +12,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
+// TODO https://www.reddit.com/r/espbasic/comments/aui14x/esp32_arduino_applying_the_hmac_sha256_mechanism/
 esp_err_t http_rest_with_url(float temperature, float humidity, int8_t rssi,
                              uint32_t powerVoltage, int8_t uartOk,
                              uint8_t statWifiErr, uint8_t statHttpErr, uint8_t statUartErr, uint8_t statWakeupCnt, int64_t statSendMS
